@@ -1,0 +1,33 @@
+# This is configuration file containing all main OFDM system parameters considered for PAPR reduction modelling.
+
+# carrier frequency (MHz)
+Fs: 15.36
+# the number of users
+N_UE: 3
+# max UE power to min UE power ratio
+P_UE_max_min: 100
+# transmitting power
+P_TX: 100
+
+
+# FFT length
+N_fft: 1024
+# the number of used subcarriers
+N_used:  600
+# the number of zeros in FFT
+N_zero: 424
+# the number of resourse blocks
+N_RB: 50
+
+# allowed AVERAGED EVM values (%)
+EVM_QPSK: 17.5
+EVM_QAM16: 12.5
+EVM_QAM64: 8
+EVM_QAM256: 3.5
+# EVM_QAM1024: 1
+
+# the number of generated signals (OFDM symbols)
+M: 25
+
+#the number of subcarriers per resource block
+N_SC_RB: 12
