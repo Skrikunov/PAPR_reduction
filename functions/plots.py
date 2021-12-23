@@ -60,7 +60,7 @@ def plot_CCDF(CCDF,LABELS,PAPR,figsize):
     plt.xlim(PAPR.min(),PAPR.max())
     plt.ylim(1e-8,1)
     
-    points = (PAPR.max()-PAPR.min()).astype(int)
+    points = (PAPR.max()-PAPR.min()).to(int)
     plt.xticks(np.linspace(0,len(PAPR),points+1),np.round(np.arange(PAPR.min(),PAPR.max()+1,1),2),fontsize=12)
     plt.yticks(fontsize=12)
     for ccdf,label in zip(CCDF,LABELS):
