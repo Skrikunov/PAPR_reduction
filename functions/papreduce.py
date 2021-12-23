@@ -3,6 +3,7 @@ import torch
 import qammod as qmd
 import system as sys
 
+from scipy.linalg import dft
 
 def gen_fourier_matrix(config,device):
     """
@@ -11,12 +12,13 @@ def gen_fourier_matrix(config,device):
         device - allocate constellation to torch.device('device') ('cpu'/'cuda')
     """
     N_fft = config['N_fft']
-    i = torch.arange(0,N_fft,device=device).reshape(-1,1).repeat(1, N_fft)
-    t = torch.arange(0,N_fft,device=device).reshape(1,-1).repeat(N_fft,1)
-    torch_pi = (2*torch.acos(torch.zeros(1)).item())
-    S_sc = torch.zeros([N_fft,N_fft],dtype=torch.complex64,device=device)
-    S_sc[:,:] = torch.exp( 2*torch_pi*1j*(i*t)/N_fft)
-    return S_sc
+#     i = torch.arange(0,N_fft,device=device).reshape(-1,1).repeat(1, N_fft)
+#     t = torch.arange(0,N_fft,device=device).reshape(1,-1).repeat(N_fft,1)
+#     torch_pi = (2*torch.acos(torch.zeros(1)).item())
+#     S_sc = torch.zeros([N_fft,N_fft],dtype=torch.complex64,device=device)
+#     S_sc[:,:] = torch.exp( 2*torch_pi*1j*(i*t)/N_fft)
+    S_sc = torch.tensor(dft(N_fft),dtype=torch.complex64,device=device)
+    return S_sc.conj().T
 
 
 def PAPR_reduce(S_t,peak_th,group_th,group_sc,S_sc,config,info=False):
@@ -40,7 +42,7 @@ def PAPR_reduce(S_t,peak_th,group_th,group_sc,S_sc,config,info=False):
     S_sc = S_sc[group_sc,:]
     
     # remove peaks on chosen subcarriers
-    S_t_canc = (Peaks @ S_sc.conj().T / N_fft )@ S_sc
+    S_t_canc = (Peaks @ S_sc.conj().T / N_fft ) @ S_sc
     
     # noise power per group subcarrier
     power_tones = torch.sum(torch.abs(S_t_canc)**2,axis=1)/group_sc.shape[0]
