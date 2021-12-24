@@ -155,15 +155,15 @@ def MOD_signal(D,device,MOD_allocation,PTX_allocation,RB_allocation,constellatio
     
     # get complex and decimal constellations
     try: QPSK_c,QPSK_d = constellations['QPSK_c'],constellations['QPSK_d']
-    except: print('QPSK constellation has not been loaded since it is not defined in config file.')
+    except: None # print('QPSK constellation has not been loaded since it is not defined in config file.')
     try: QAM16_c,QAM16_d = constellations['QAM16_c'],constellations['QAM16_d']
-    except: print('QAM16 constellation has not been loaded since it is not defined in config file.')
+    except: None # print('QAM16 constellation has not been loaded since it is not defined in config file.')
     try: QAM64_c,QAM64_d = constellations['QAM64_c'],constellations['QAM64_d']
-    except: print('QAM64 constellation has not been loaded since it is not defined in config file.')
+    except: None # print('QAM64 constellation has not been loaded since it is not defined in config file.')
     try: QAM256_c,QAM256_d = constellations['QAM256_c'],constellations['QAM256_d']
-    except: print('QAM256 constellation has not been loaded since it is not defined in config file.')
+    except: None # print('QAM256 constellation has not been loaded since it is not defined in config file.')
     try: QAM1024_c,QAM1024_d = constellations['QAM1024_c'],constellations['QAM1024_d']
-    except: print('QAM1024 constellation has not been loaded since it is not defined in config file.')
+    except: None # print('QAM1024 constellation has not been loaded since it is not defined in config file.')
         
     PTX_allocation = torch.tensor(PTX_allocation)
     RB_allocation = torch.tensor(RB_allocation)
