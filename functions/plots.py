@@ -105,11 +105,11 @@ def plot_spectrum(SIGNALS,LABELS,TITLE,Fs,config):
     win = signal.get_window('hanning', N_fft)
     # create figure
     plt.figure(figsize=(12,8))
-    plt.ylim(-40,20)
+    plt.ylim(-50,20)
 
     PSD = []
     for s_t,lab in zip(SIGNALS,LABELS):
-        S_temp = np.array(s_t.reshape(1,-1).cpu())
+        S_temp = np.array(s_t.T.reshape(1,-1).cpu())
         f, Pxxf = signal.welch(S_temp, Fs, window=win, noverlap=N_fft//2, nfft=N_fft, return_onesided=False,scaling='density')
         plt.plot(f, pow2db(np.fft.ifftshift(Pxxf.T)),label=lab)
         PSD.append(Pxxf)

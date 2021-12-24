@@ -27,7 +27,7 @@ EVM_QAM256: 3.5
 # EVM_QAM1024: 1
 
 # the number of generated signals (OFDM symbols)
-M: 2500
+M: 250
 
 #the number of subcarriers per resource block
 N_SC_RB: 12

@@ -122,18 +122,20 @@ def find_peaks(S_t, th, N_fft):
     # compute signal power for each sample
     power = torch.abs(S_t)**2
     # find mean power for each OFDM symbol
-    power_sum = torch.sum(power,axis=1) / N_fft
+    power_mean = torch.sum(power,axis=0) / N_fft
     
     # pass peaks higher than threshold
     # only peaks higher than threshold
     # only th > 0 has sence (to substrant peaks higher mean value)
-    S_t_peaks = S_t*(power > power_sum.reshape(-1,1)*10**(th/10))
+    S_t_peaks = S_t*(power > power_mean.reshape(1,-1)*10**(th/10))
     return S_t_peaks
 
 
-def GEN_signal(MOD_allocation,PTX_allocation,RB_allocation,constellations,config,info=False):
+def MOD_signal(D,device,MOD_allocation,PTX_allocation,RB_allocation,constellations,config,info=False):
     """
     Generates OFDM signal with predefined mod/tx power/rb allocations
+        D - decimal complex constelllation points
+        device - allocate to torch.device('device') ('cpu'/'cuda')
         MOD_allocation - modulation typ allocation
         PTX_allocation - transmitted power allocation
         RB_allocation - resourse block allocation
@@ -151,9 +153,6 @@ def GEN_signal(MOD_allocation,PTX_allocation,RB_allocation,constellations,config
     
     power=0
     
-    # select device
-    device=torch.device('cuda')
-    
     # get complex and decimal constellations
     try: QPSK_c,QPSK_d = constellations['QPSK_c'],constellations['QPSK_d']
     except: print('QPSK constellation has not been loaded since it is not defined in config file.')
@@ -170,8 +169,9 @@ def GEN_signal(MOD_allocation,PTX_allocation,RB_allocation,constellations,config
     RB_allocation = torch.tensor(RB_allocation)
     UE_SC_idx = GET_UE_SC_idx(RB_allocation)
     k=(N_used/N_fft)**0.5
+    D = D.to(torch.complex64)
     # array for the f-domain signal
-    S_f = torch.zeros([M,N_fft],dtype=torch.complex64,device=device)
+    S_f = torch.zeros([N_fft,M],dtype=torch.complex64,device=device)
     for user in range(N_UE):
         UE_power = torch.sqrt(PTX_allocation[user])
         start_idx = UE_SC_idx[user]
@@ -183,36 +183,36 @@ def GEN_signal(MOD_allocation,PTX_allocation,RB_allocation,constellations,config
         k=1
         
         if MOD_allocation[user] == 'QPSK':
-            data_qpsk = torch.randint(0,4,(M,N_SC),device=device)
-            S_f[:,start_idx:end_idx] = qmd.QAM_mod(data_qpsk,M=4,lin_complex_const=QPSK_c,
+            data_qpsk = D[start_idx:end_idx,:] # torch.randint(0,4,(M,N_SC),device=device)
+            S_f[start_idx:end_idx,:] = qmd.QAM_mod(data_qpsk,M=4,lin_complex_const=QPSK_c,
                                                     lin_decimal_const=QPSK_d,unit_power=True)*UE_power/k
         
         elif MOD_allocation[user] == 'QAM16':
-            data_qam16 = torch.randint(0,16,(M,N_SC),device=device)
-            S_f[:,start_idx:end_idx] = qmd.QAM_mod(data_qam16,M=16,lin_complex_const=QAM16_c,
+            data_qam16 = D[start_idx:end_idx,:] # torch.randint(0,16,(M,N_SC),device=device)
+            S_f[start_idx:end_idx,:] = qmd.QAM_mod(data_qam16,M=16,lin_complex_const=QAM16_c,
                                                     lin_decimal_const=QAM16_d,unit_power=True)*UE_power/k
         
         elif MOD_allocation[user] == 'QAM64':
-            data_qam64 = torch.randint(0,64,(M,N_SC),device=device)
-            S_f[:,start_idx:end_idx] = qmd.QAM_mod(data_qam64,M=64,lin_complex_const=QAM64_c,
+            data_qam64 = D[start_idx:end_idx,:] # torch.randint(0,64,(M,N_SC),device=device)
+            S_f[start_idx:end_idx,:] = qmd.QAM_mod(data_qam64,M=64,lin_complex_const=QAM64_c,
                                                     lin_decimal_const=QAM64_d,unit_power=True)*UE_power/k
         
         elif MOD_allocation[user] == 'QAM256':
-            data_qam256 = torch.randint(0,256,(M,N_SC),device=device)
-            S_f[:,start_idx:end_idx] = qmd.QAM_mod(data_qam256,M=256,lin_complex_const=QAM256_c,
+            data_qam256 = D[start_idx:end_idx,:] # torch.randint(0,256,(M,N_SC),device=device)
+            S_f[start_idx:end_idx,:] = qmd.QAM_mod(data_qam256,M=256,lin_complex_const=QAM256_c,
                                                     lin_decimal_const=QAM256_d,unit_power=True)*UE_power/k
 
         elif MOD_allocation[user] == 'QAM1024':
-            data_qam1024 = torch.randint(0,1024,(M,N_SC),device=device)
-            S_f[:,start_idx:end_idx] = qmd.QAM_mod(data_qam1024,M=1024,lin_complex_const=QAM1024_c,
+            data_qam1024 = D[start_idx:end_idx,:x] # torch.randint(0,1024,(M,N_SC),device=device)
+            S_f[start_idx:end_idx,:] = qmd.QAM_mod(data_qam1024,M=1024,lin_complex_const=QAM1024_c,
                                                     lin_decimal_const=QAM1024_d,unit_power=True)*UE_power/k
             
-        if info: power += get_power(S_f[:,start_idx:end_idx])
+        if info: power += get_power(S_f[start_idx:end_idx,:])
     
     # shift along FFT axis
-    S_f = torch.roll(S_f,N_zero//2)
-    # IFFT along the 2nd axis (horizontal)
-    S_t = torch.fft.ifft(S_f, axis=1) * torch.sqrt(torch.tensor(N_fft))
+    S_f = torch.roll(S_f,N_zero//2,dims=0)
+    # IFFT along the 1st axis (vertical, freqs)
+    S_t = torch.fft.ifft(S_f, axis=0) * torch.sqrt(torch.tensor(N_fft))
 
     if info:
         print("The signal has been generated:")
@@ -224,6 +224,44 @@ def GEN_signal(MOD_allocation,PTX_allocation,RB_allocation,constellations,config
         
     return S_t,S_f
 
+def GEN_points(device,MOD_allocation,RB_allocation,config,info=False):
+    # unpack config
+    N_UE = config['N_UE']
+    M = config['M']
+    N_fft = config['N_fft']
+    N_used = config['N_used']
+    N_zero = config['N_zero']
+    N_SC_RB = config['N_SC_RB']
+
+    RB_allocation = torch.tensor(RB_allocation)
+    UE_SC_idx = GET_UE_SC_idx(RB_allocation)
+
+    D_points = torch.zeros([N_used,M],device=device)
+    for user in range(N_UE):
+        start_idx = UE_SC_idx[user]
+        end_idx = UE_SC_idx[user+1]
+        N_SC=N_SC_RB*RB_allocation[user]
+        
+        if MOD_allocation[user] == 'QPSK':
+            data_qpsk = torch.randint(0,4,(N_SC,M),device=device)
+            D_points[start_idx:end_idx,:] = data_qpsk
+        
+        elif MOD_allocation[user] == 'QAM16':
+            data_qam16 = torch.randint(0,16,(N_SC,M),device=device)
+            D_points[start_idx:end_idx,:] = data_qam16
+        
+        elif MOD_allocation[user] == 'QAM64':
+            data_qam64 = torch.randint(0,64,(N_SC,M),device=device)
+            D_points[start_idx:end_idx,:] = data_qam64
+        
+        elif MOD_allocation[user] == 'QAM256':
+            data_qam256 = torch.randint(0,256,(N_SC,M),device=device)
+            D_points[start_idx:end_idx,:] = data_qam256
+
+        elif MOD_allocation[user] == 'QAM1024':
+            data_qam1024 = torch.randint(0,1024,(N_SC,M),device=device)
+            D_points[start_idx:end_idx,:] = data_qam1024
+    return D_points
 
 def GET_GROUP_SC(N_used,UE_indexes,RB_allocation):
     """
@@ -246,7 +284,7 @@ def get_signal_PAPR(S_t):
     Calculates peak-to-average power ratio of the given signal
         S_t - input signal
     """
-    max_power = torch.max(torch.abs(S_t)**2,axis=1)[0]
+    max_power = torch.max(torch.abs(S_t)**2,axis=0)[0]
     mean_power = torch.mean(torch.abs(S_t)**2)
     PAPR = 10*torch.log10(max_power/mean_power)
     return PAPR,PAPR.mean()
