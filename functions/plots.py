@@ -4,18 +4,15 @@ import system as sys
 import numpy as np
 import torch
 
+
 def plot_res_allocation(PTX_allocation,RB_allocation,MOD_allocation,color_list,config):
     N_UE = config['N_UE']
     P_TX = config['P_TX']
     N_used = config['N_used']
     fontsize=12
     plt.figure(figsize=(13,N_UE*0.6))
-    plt.title('Resourses allocation.'+
-              'N_UE = ' + str(N_UE) +
-              '; P_TX = ' + str(P_TX) +
-              '; N_SC = ' + str(N_used),
-              fontsize=16)
-    plt.ylim(0,600)
+    plt.title(f'Resourses allocation N_UE = {N_UE}, P_TX = {P_TX}, N_SC = {N_used}',fontsize=16)
+    plt.ylim(0,N_used)
     plt.xlim(0,1.75)
     plt.xticks(fontsize=14)
     plt.yticks(fontsize=14)
@@ -31,15 +28,10 @@ def plot_res_allocation(PTX_allocation,RB_allocation,MOD_allocation,color_list,c
         plt.fill_between(np.array([0,0.35]),SC[i],SC[i+1]+1,color=color_list[i])
         dy = 4
         dx = -0.6
-#         text = str('P_UE = '+str(PTX_allocation[i])+
-#                    ';   N_RB = '+str(RB_allocation[i])+
-#                    ';   N_SC = '+str(12*RB_allocation[i])+
-#                    ';   MOD = '+MOD_allocation[i]))
-        
-        plt.text(1.00+dx,(SC[i]+SC[i+1])/2-dy,'P_UE = '+str(PTX_allocation[i]),fontsize=fontsize)
-        plt.text(1.3+dx,(SC[i]+SC[i+1])/2-dy,'N_RB = '+str(RB_allocation[i]),fontsize=fontsize)
-        plt.text(1.6+dx,(SC[i]+SC[i+1])/2-dy,'N_SC = '+str(12*RB_allocation[i]),fontsize=fontsize)
-        plt.text(1.9+dx,(SC[i]+SC[i+1])/2-dy,'MOD = '+MOD_allocation[i],fontsize=fontsize)
+        plt.text(1.00+dx,(SC[i]+SC[i+1])/2-dy,f'P_UE = {PTX_allocation[i]}',fontsize=fontsize)
+        plt.text(1.3+dx,(SC[i]+SC[i+1])/2-dy,f'N_RB = {RB_allocation[i]}',fontsize=fontsize)
+        plt.text(1.6+dx,(SC[i]+SC[i+1])/2-dy,f'N_SC = {12*RB_allocation[i]}',fontsize=fontsize)
+        plt.text(1.9+dx,(SC[i]+SC[i+1])/2-dy,f'MOD = {MOD_allocation[i]}',fontsize=fontsize)
     return None
 
 
@@ -97,14 +89,16 @@ def pow2db(val):
     return 10*np.log10(val)
 
 
-def plot_spectrum(SIGNALS,LABELS,TITLE,Fs,config):
+def plot_spectrum(SIGNALS,LABELS,TITLE,config,figsize):
     assert len(SIGNALS)==len(LABELS)
     fontsize=16
     N_fft=config['N_fft']
+    Fs=config['Fs']
     # create window
     win = signal.get_window('hanning', N_fft)
+    win = np.ones(N_fft)
     # create figure
-    plt.figure(figsize=(12,8))
+    plt.figure(figsize=figsize)
     plt.ylim(-50,20)
 
     PSD = []
@@ -179,3 +173,68 @@ def plot_constellation(linear_complex_constellation,dec_num_linear_constellation
         plt.text(point.real+dx1, point.imag+dy1,np.binary_repr(dec_num_linear_constellation.reshape(-1,1)[i].item(),width=k),fontsize=fs)
         plt.text(point.real+dx2, point.imag+dy2,str(dec_num_linear_constellation.reshape(-1,1)[i].item()),fontsize=fs)
     plt.show()
+
+
+def find_max_min_papr_symbol(S_t,S_f,PAPR):
+    min_papr,max_papr = {},{}
+    min_papr['index'] = torch.nonzero(PAPR == torch.min(PAPR)).item()
+    min_papr['value'] = PAPR[min_papr['index']].item()
+    min_papr['symbol_t'] = S_t[:,min_papr['index']].cpu().squeeze()
+    min_papr['symbol_f'] = S_f[:,min_papr['index']].cpu().squeeze()
+    max_papr['index'] = torch.nonzero(PAPR == torch.max(PAPR))
+    max_papr['value'] = PAPR[max_papr['index']].item()
+    max_papr['symbol_t'] = S_t[:,max_papr['index']].cpu().squeeze()
+    max_papr['symbol_f'] = S_f[:,max_papr['index']].cpu().squeeze()
+    return min_papr,max_papr
+
+
+def plot_maxminpapr(min_papr,max_papr,figsize):
+    fontsize = 16
+    fig, (ax1, ax2) = plt.subplots(2, 1, sharey=False,figsize=figsize)
+    s = torch.max(torch.max(torch.abs(max_papr['symbol_t'])**2),torch.max(torch.abs(max_papr['symbol_t'])**2))
+    ax1.set_xlim(0,len(max_papr['symbol_t']))
+    ax1.set_ylim(0,1.05*s)
+    ax1.set_ylabel('Power',fontsize=fontsize)
+    ax1.set_xlabel('Time index',fontsize=fontsize)
+#     ax1.plot(torch.abs(min_papr['symbol_t'])**2,label='power')
+    ax1.stem(torch.abs(min_papr['symbol_t'])**2,label='power',markerfmt='')
+    ax1.set_title(f'Min PAPR symbol has PAPR = {min_papr["value"]:1.3f}',fontsize=fontsize)
+    ax1.grid()
+    ax1.hlines(torch.mean(torch.abs(min_papr['symbol_t'])**2),0,1024,'r','--',linewidth=3,label='Mean power')
+    ax1.legend(loc='upper right',fontsize=fontsize)
+    
+    ax2.set_xlim(0,len(min_papr['symbol_t']))
+    ax2.set_ylim(0,1.05*s)
+    ax2.set_ylabel('Power',fontsize=fontsize)
+    ax2.set_xlabel('Time index',fontsize=fontsize)
+#     ax2.plot(torch.abs(max_papr['symbol_t'])**2,label='power')
+    ax2.stem(torch.abs(max_papr['symbol_t'])**2,label='power',markerfmt='')
+    ax2.set_title(f'Max PAPR symbol has PAPR = {max_papr["value"]:1.3f}',fontsize=fontsize)
+    ax2.grid()
+    ax2.hlines(torch.mean(torch.abs(max_papr['symbol_t'])**2),0,1024,'r','--',linewidth=3,label='Mean power')
+    ax2.legend(loc='upper right',fontsize=fontsize) 
+    
+    fig.tight_layout()
+    plt.show()
+    
+    
+def plot_PSD(ANL_allocation,SC,PSD,cfg):
+    plt.figure(figsize=(8,4))
+    plt.plot(10*np.log10(np.array(PSD[0])[0,:])) # before reduction
+    plt.plot(10*np.log10(np.array(PSD[1])[0,:])) # after reduction
+    for i in range(cfg['N_UE']):
+        allowed_level = 10*np.log10(ANL_allocation[i])
+        top_level = 10*np.log10(np.array(PSD[0])[0,SC[i]:SC[i+1]]).mean()
+        plt.hlines(top_level + allowed_level,SC[i],SC[i+1],colors='r',linewidth=2)
+        plt.hlines(top_level + allowed_level,0,1024,colors='k',linestyles='--',linewidth=1)
+    plt.ylim(-60,10)
+    plt.xlim(0,1024)
+    plt.show()
+
+    plt.figure(figsize=(8,4))
+    plt.plot(-10*np.log10(PSD[0].T) + 10*np.log10(PSD[1].T))
+    for i in range(cfg['N_UE']):
+        plt.hlines(10*np.log10(ANL_allocation[i]),SC[i],SC[i+1],colors='r',linewidth=3)
+        plt.hlines(10*np.log10(ANL_allocation[i]),0,1024,colors='k',linestyles='--',linewidth=1)
+    # plt.ylim(-60,10)
+    plt.xlim(0,1024)

@@ -13,6 +13,9 @@ def PTX_allocate(config,info=False):
     P_TX = config['P_TX']
     N_UE = config['N_UE']
     P_UE_max_min = config['P_UE_max_min']
+    SEED = config['P_SEED']
+#     torch.manual_seed(SEED)
+    np.random.seed(SEED)
     
     # UE power constrains
     P_UE_min = P_TX / (N_UE - 1 + P_UE_max_min)
@@ -53,8 +56,11 @@ def MOD_allocate(config,info=False):
     modulations['QAM16']=config['EVM_QAM16']
     modulations['QAM64']=config['EVM_QAM64']
     modulations['QAM256']=config['EVM_QAM256']
-#     modulations['QAM1024']=config['EVM_QAM1024']
+    modulations['QAM1024']=config['EVM_QAM1024']
     N_UE = config['N_UE']
+    SEED = config['M_SEED']
+#     torch.manual_seed(SEED)
+    np.random.seed(SEED)
     
     # an amount of modulation types
     mod_number = len(modulations.keys())
@@ -89,6 +95,9 @@ def RB_allocate(config,info=False):
     """
     N_UE = config['N_UE']
     N_RB = config['N_RB']
+    SEED = config['RB_SEED']
+#     torch.manual_seed(SEED)
+    np.random.seed(SEED)
     
     rb_alloc = np.round(np.random.random(N_UE)*N_RB)
     rb_alloc = rb_alloc + N_RB//3
@@ -111,8 +120,28 @@ def RB_allocate(config,info=False):
     return rb_alloc
 
 
+def get_ANL_allocation(EVM_allocation,PTX_allocation,info=False):
+    """
+    Returns allowed noise level allocation in terms of power and amplitude
+        EVM_allocation - UEs EVM corresponding to modulation type
+        PTX_allocation - allocated UEs powers
+        info - print function info (True/False)
+    """
+    ANL_allocation_P = ((EVM_allocation/100)**2)*(PTX_allocation/PTX_allocation.sum()) # power
+#     if info:
+#         print(f'Allowed noise level allocation (dB): {10*np.log10(ANL_allocation_P)}')
+#         print(f'(%): {100*ANL_allocation_P}')
+#         print()
 
-def find_peaks(S_t, th, N_fft):
+    ANL_allocation_A = (EVM_allocation/100) * (PTX_allocation/PTX_allocation.sum())**0.5  # amplitude
+    if info:
+        print(f'Allowed noise level allocation: {np.round(20*np.log10(ANL_allocation_A),3)} dB')
+        print(f'                                {np.round(100*ANL_allocation_A,3)} %')
+        print()
+    return ANL_allocation_P,ANL_allocation_A
+
+
+def find_peaks(S_t, peak_th, N_fft):
     """
     Finds peaks over predefined threshold
         S_t - time domain signal (torch tensor)
@@ -126,14 +155,23 @@ def find_peaks(S_t, th, N_fft):
     
     # pass peaks higher than threshold
     # only peaks higher than threshold
-    # only th > 0 has sence (to substrant peaks higher mean value)
-    S_t_peaks = S_t*(power > power_mean.reshape(1,-1)*10**(th/10))
+    # only th > 0 has sense (to substrant peaks higher mean value)
+    S_t_peaks = S_t*(power > power_mean.reshape(1,-1)*10**(peak_th/10))
     return S_t_peaks
+
+
+def find_peaks1(S_t, n_peaks):
+    Peaks_pos = torch.abs(S_t).argsort(axis=0)[-n_peaks:,:]
+    Peaks = torch.zeros_like(S_t)
+    for i in range(S_t.shape[1]):
+        peaks_pos = Peaks_pos[:,i]
+        Peaks[peaks_pos,i] = S_t[peaks_pos,i]
+    return Peaks
 
 
 def MOD_signal(D,device,MOD_allocation,PTX_allocation,RB_allocation,constellations,config,info=False):
     """
-    Generates OFDM signal with predefined mod/tx power/rb allocations
+    Modulates OFDM signal with predefined mod/tx power/rb allocations
         D - decimal complex constelllation points
         device - allocate to torch.device('device') ('cpu'/'cuda')
         MOD_allocation - modulation typ allocation
@@ -150,9 +188,7 @@ def MOD_signal(D,device,MOD_allocation,PTX_allocation,RB_allocation,constellatio
     N_used = config['N_used']
     N_zero = config['N_zero']
     N_SC_RB = config['N_SC_RB']
-    
     power=0
-    
     # get complex and decimal constellations
     try: QPSK_c,QPSK_d = constellations['QPSK_c'],constellations['QPSK_d']
     except: None # print('QPSK constellation has not been loaded since it is not defined in config file.')
@@ -176,8 +212,7 @@ def MOD_signal(D,device,MOD_allocation,PTX_allocation,RB_allocation,constellatio
         UE_power = torch.sqrt(PTX_allocation[user])
         start_idx = UE_SC_idx[user]
         end_idx = UE_SC_idx[user+1]
-        N_SC=N_SC_RB*RB_allocation[user]
-        
+        N_SC=N_SC_RB*RB_allocation[user] 
 #         k=(N_SC/N_fft)**0.5
 #         k=(N_used/N_fft)**0.5
         k=1
@@ -203,7 +238,7 @@ def MOD_signal(D,device,MOD_allocation,PTX_allocation,RB_allocation,constellatio
                                                     lin_decimal_const=QAM256_d,unit_power=True)*UE_power/k
 
         elif MOD_allocation[user] == 'QAM1024':
-            data_qam1024 = D[start_idx:end_idx,:x] # torch.randint(0,1024,(M,N_SC),device=device)
+            data_qam1024 = D[start_idx:end_idx,:] # torch.randint(0,1024,(M,N_SC),device=device)
             S_f[start_idx:end_idx,:] = qmd.QAM_mod(data_qam1024,M=1024,lin_complex_const=QAM1024_c,
                                                     lin_decimal_const=QAM1024_d,unit_power=True)*UE_power/k
             
@@ -224,7 +259,16 @@ def MOD_signal(D,device,MOD_allocation,PTX_allocation,RB_allocation,constellatio
         
     return S_t,S_f
 
+
 def GEN_points(device,MOD_allocation,RB_allocation,config,info=False):
+    """
+    Generates OFDM signal with predefined mod/tx power/rb allocations
+        device - allocate to torch.device('device') ('cpu'/'cuda')
+        MOD_allocation - modulation typ allocation
+        RB_allocation - resourse block allocation
+        config - setup settings
+        info - print function info (True/False)
+    """
     # unpack config
     N_UE = config['N_UE']
     M = config['M']
@@ -232,6 +276,9 @@ def GEN_points(device,MOD_allocation,RB_allocation,config,info=False):
     N_used = config['N_used']
     N_zero = config['N_zero']
     N_SC_RB = config['N_SC_RB']
+    SEED = config['RNG_SEED']
+    torch.manual_seed(SEED)
+#     np.random.seed(SEED)
 
     RB_allocation = torch.tensor(RB_allocation)
     UE_SC_idx = GET_UE_SC_idx(RB_allocation)
@@ -263,6 +310,7 @@ def GEN_points(device,MOD_allocation,RB_allocation,config,info=False):
             D_points[start_idx:end_idx,:] = data_qam1024
     return D_points
 
+
 def GET_GROUP_SC(N_used,UE_indexes,RB_allocation):
     """
     Generates OFDM signal with predefined mod/tx power/rb allocations
@@ -285,9 +333,9 @@ def get_signal_PAPR(S_t):
         S_t - input signal
     """
     max_power = torch.max(torch.abs(S_t)**2,axis=0)[0]
-    mean_power = torch.mean(torch.abs(S_t)**2)
+    mean_power = torch.mean(torch.abs(S_t)**2,axis=0)
     PAPR = 10*torch.log10(max_power/mean_power)
-    return PAPR,PAPR.mean()
+    return PAPR
 
 
 def GET_UE_RB_idx(RB_allocation):
@@ -306,20 +354,3 @@ def get_power(signal):
     """
     """
     return torch.mean(torch.abs(signal)**2)
-
-
-def get_ANL_allocation(EVM_allocation,PTX_allocation,info=False):
-    """
-    """
-    ANL_allocation_P = ((EVM_allocation/100)**2)*(PTX_allocation/PTX_allocation.sum()) # power
-#     if info:
-#         print(f'Allowed noise level allocation (dB): {10*np.log10(ANL_allocation_P)}')
-#         print(f'(%): {100*ANL_allocation_P}')
-#         print()
-
-    ANL_allocation_A = (EVM_allocation/100) * (PTX_allocation/PTX_allocation.sum())**0.5  # amplitude
-    if info:
-        print(f'Allowed noise level allocation (dB): {20*np.log10(ANL_allocation_A)}')
-        print(f'(%): {100*ANL_allocation_A}')
-        print()
-    return ANL_allocation_P,ANL_allocation_A

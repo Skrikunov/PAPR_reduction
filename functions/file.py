@@ -1,6 +1,7 @@
 import h5py
 import os.path
 
+
 def save_file(folder,name,data,xaxis,yaxis):
     path = folder + '/' + name
     if not os.path.exists(path):
@@ -14,6 +15,7 @@ def save_file(folder,name,data,xaxis,yaxis):
         print('The file already exists')
     return None
 
+
 def rewrite_file(folder,name,data,xaxis,yaxis):
     path = folder + '/' + name
     if os.path.exists(path):
@@ -26,6 +28,7 @@ def rewrite_file(folder,name,data,xaxis,yaxis):
     else:
         print('The file does not exist')
     return None
+
 
 def read_file(folder,name):
     path = folder + '/' + name

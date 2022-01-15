@@ -5,6 +5,7 @@ def QAM_demod(S_f,M,lin_complex_const,lin_decimal_const,ptx,unit_power=False):
     D = lin_decimal_const[torch.abs(diff).argmin(axis=1)].reshape(shape)
     return D
 
+
 def DEMOD_signal(S_f,device,MOD_allocation,PTX_allocation,RB_allocation,constellations,config,info=False):
     """
     Generates OFDM signal with predefined mod/tx power/rb allocations
@@ -91,6 +92,7 @@ def DEMOD_signal(S_f,device,MOD_allocation,PTX_allocation,RB_allocation,constell
 #         print(f'Mean power in time dommain = {torch.mean(torch.abs(S_t)**2):.3f}')
         
     return D
+
 
 def GET_UE_SC_idx(RB_allocation):
     """

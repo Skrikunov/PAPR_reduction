@@ -3,12 +3,11 @@
 # carrier frequency (MHz)
 Fs: 15.36
 # the number of users
-N_UE: 3
+N_UE: 5
 # max UE power to min UE power ratio
 P_UE_max_min: 100
-# transmitting power
+# transmitting power, %
 P_TX: 100
-
 
 # FFT length
 N_fft: 1024
@@ -24,10 +23,19 @@ EVM_QPSK: 17.5
 EVM_QAM16: 12.5
 EVM_QAM64: 8
 EVM_QAM256: 3.5
-# EVM_QAM1024: 1
+EVM_QAM1024: 1
 
 # the number of generated signals (OFDM symbols)
-M: 250
+M: 500
 
 #the number of subcarriers per resource block
 N_SC_RB: 12
+
+# random data generator seed
+RNG_SEED: 0
+# power allocation seed
+P_SEED: 0
+# modulation allocation seed
+M_SEED: 0
+# resourse block allocation seed
+RB_SEED: 0
