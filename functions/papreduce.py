@@ -62,7 +62,7 @@ def PAPR_reduce(S_t,peak_th,group_th,group_sc,S_sc,config,info=False):
     th = 10*torch.log10(torch.tensor(group_th)) # arg - (EVM%**2/10000) * P/PTX
 #     th = 20*torch.log10(group_th) # arg - (EVM%/100) * (P/PTX)**0.5
     
-    coef = (u > th)*10**((-u+th)/20) + (u <= th)*10**((-u+th)/20)
+    coef = (u > th)*10**((-u+th)/20) + (u <= th)*1
     coef[torch.isnan(coef)] = 0
     S_t_canc_final = coef.reshape(1,-1) * S_t_canc
     

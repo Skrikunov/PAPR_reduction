@@ -12,7 +12,7 @@ P_TX: 100
 # FFT length
 N_fft: 1024
 # the number of used subcarriers
-N_used:  600
+N_used: 600
 # the number of zeros in FFT
 N_zero: 424
 # the number of resourse blocks
@@ -26,7 +26,7 @@ EVM_QAM256: 3.5
 EVM_QAM1024: 1
 
 # the number of generated signals (OFDM symbols)
-M: 500
+M: 250
 
 #the number of subcarriers per resource block
 N_SC_RB: 12

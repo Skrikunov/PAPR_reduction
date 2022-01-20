@@ -89,11 +89,12 @@ def pow2db(val):
     return 10*np.log10(val)
 
 
-def plot_spectrum(SIGNALS,LABELS,TITLE,config,figsize):
+def plot_spectrum(SIGNALS,LABELS,TITLE,ANL_allocation,SC,config,figsize):
     assert len(SIGNALS)==len(LABELS)
     fontsize=16
     N_fft=config['N_fft']
     Fs=config['Fs']
+    N_UE=config['N_UE']
     # create window
     win = signal.get_window('hanning', N_fft)
     win = np.ones(N_fft)
@@ -107,6 +108,13 @@ def plot_spectrum(SIGNALS,LABELS,TITLE,config,figsize):
         f, Pxxf = signal.welch(S_temp, Fs, window=win, noverlap=N_fft//2, nfft=N_fft, return_onesided=False,scaling='density')
         plt.plot(f, pow2db(np.fft.ifftshift(Pxxf.T)),label=lab)
         PSD.append(Pxxf)
+        
+    for i in range(N_UE):
+        allowed_level = 10*np.log10(ANL_allocation[i])
+        top_level = 10*np.log10(np.array(PSD[0])[0,SC[i]:SC[i+1]]).mean()
+        plt.hlines(top_level + allowed_level,(Fs/1024)*SC[i]-Fs/2,(Fs/1024)*SC[i+1]-Fs/2,colors='r',linewidth=2)
+        plt.hlines(top_level + allowed_level,-Fs/2,Fs/2,colors='k',linestyles='--',linewidth=1)
+        
     plt.title(TITLE,fontsize=fontsize)
     plt.xlim(-Fs/2,Fs/2)
     plt.xlabel('Frequency,MHz',fontsize=fontsize)
@@ -114,6 +122,20 @@ def plot_spectrum(SIGNALS,LABELS,TITLE,config,figsize):
     plt.grid()
     plt.legend(loc='upper right',fontsize=fontsize) 
     plt.show()
+    
+    plt.figure(figsize=figsize)
+    plt.plot(-10*np.log10(PSD[0].T) + 10*np.log10(PSD[1].T))
+    for i in range(N_UE):
+        plt.hlines(10*np.log10(ANL_allocation[i]),SC[i],SC[i+1],colors='r',linewidth=3)
+        plt.hlines(10*np.log10(ANL_allocation[i]),0,1024,colors='k',linestyles='--',linewidth=1)
+    plt.xlim(0,1024)
+    plt.title(TITLE,fontsize=fontsize)
+    plt.xlabel('Frequency,MHz',fontsize=fontsize)
+    plt.ylabel('Power difference,dB',fontsize=fontsize)
+    plt.grid()
+#     plt.legend(loc='upper right',fontsize=fontsize) 
+    plt.show()
+    
     return PSD
 
 
@@ -196,8 +218,8 @@ def plot_maxminpapr(min_papr,max_papr,figsize):
     ax1.set_ylim(0,1.05*s)
     ax1.set_ylabel('Power',fontsize=fontsize)
     ax1.set_xlabel('Time index',fontsize=fontsize)
-#     ax1.plot(torch.abs(min_papr['symbol_t'])**2,label='power')
-    ax1.stem(torch.abs(min_papr['symbol_t'])**2,label='power',markerfmt='')
+    ax1.plot(torch.abs(min_papr['symbol_t'])**2,label='power')
+#     ax1.stem(torch.abs(min_papr['symbol_t'])**2,label='power',markerfmt='')
     ax1.set_title(f'Min PAPR symbol has PAPR = {min_papr["value"]:1.3f}',fontsize=fontsize)
     ax1.grid()
     ax1.hlines(torch.mean(torch.abs(min_papr['symbol_t'])**2),0,1024,'r','--',linewidth=3,label='Mean power')
@@ -207,8 +229,8 @@ def plot_maxminpapr(min_papr,max_papr,figsize):
     ax2.set_ylim(0,1.05*s)
     ax2.set_ylabel('Power',fontsize=fontsize)
     ax2.set_xlabel('Time index',fontsize=fontsize)
-#     ax2.plot(torch.abs(max_papr['symbol_t'])**2,label='power')
-    ax2.stem(torch.abs(max_papr['symbol_t'])**2,label='power',markerfmt='')
+    ax2.plot(torch.abs(max_papr['symbol_t'])**2,label='power')
+#     ax2.stem(torch.abs(max_papr['symbol_t'])**2,label='power',markerfmt='')
     ax2.set_title(f'Max PAPR symbol has PAPR = {max_papr["value"]:1.3f}',fontsize=fontsize)
     ax2.grid()
     ax2.hlines(torch.mean(torch.abs(max_papr['symbol_t'])**2),0,1024,'r','--',linewidth=3,label='Mean power')
@@ -216,25 +238,3 @@ def plot_maxminpapr(min_papr,max_papr,figsize):
     
     fig.tight_layout()
     plt.show()
-    
-    
-def plot_PSD(ANL_allocation,SC,PSD,cfg):
-    plt.figure(figsize=(8,4))
-    plt.plot(10*np.log10(np.array(PSD[0])[0,:])) # before reduction
-    plt.plot(10*np.log10(np.array(PSD[1])[0,:])) # after reduction
-    for i in range(cfg['N_UE']):
-        allowed_level = 10*np.log10(ANL_allocation[i])
-        top_level = 10*np.log10(np.array(PSD[0])[0,SC[i]:SC[i+1]]).mean()
-        plt.hlines(top_level + allowed_level,SC[i],SC[i+1],colors='r',linewidth=2)
-        plt.hlines(top_level + allowed_level,0,1024,colors='k',linestyles='--',linewidth=1)
-    plt.ylim(-60,10)
-    plt.xlim(0,1024)
-    plt.show()
-
-    plt.figure(figsize=(8,4))
-    plt.plot(-10*np.log10(PSD[0].T) + 10*np.log10(PSD[1].T))
-    for i in range(cfg['N_UE']):
-        plt.hlines(10*np.log10(ANL_allocation[i]),SC[i],SC[i+1],colors='r',linewidth=3)
-        plt.hlines(10*np.log10(ANL_allocation[i]),0,1024,colors='k',linestyles='--',linewidth=1)
-    # plt.ylim(-60,10)
-    plt.xlim(0,1024)

@@ -14,8 +14,9 @@ def PTX_allocate(config,info=False):
     N_UE = config['N_UE']
     P_UE_max_min = config['P_UE_max_min']
     SEED = config['P_SEED']
-#     torch.manual_seed(SEED)
-    np.random.seed(SEED)
+    if SEED:
+#         torch.manual_seed(SEED)
+        np.random.seed(SEED)
     
     # UE power constrains
     P_UE_min = P_TX / (N_UE - 1 + P_UE_max_min)
@@ -33,12 +34,11 @@ def PTX_allocate(config,info=False):
         P_allocation[random_UE] += delta_p
         
     if info:
-        print('UE power has been allocated - OK:')
+        print('* UE power has been allocated - OK:')
         print(f'Max UE power can be: {P_UE_max:10.3f}')
         print(f'Min UE power can be: {P_UE_min:10.3f}')
         print(f'Sum UE power can be: {P_UE_max+(N_UE-1)*P_UE_min:10.3f}')
-        print(f'Current Ptx allocation: {P_allocation}')
-        print(f'Sum UE power is: {np.sum(P_allocation):14.3f}')
+        print(f'Current Ptx allocation: {P_allocation}',f'Sum = {np.sum(P_allocation):0.3f}')
         print()
         
     assert (np.sum(P_allocation <= 0) == 0), 'Power must be non-zero positive value'
@@ -59,8 +59,9 @@ def MOD_allocate(config,info=False):
     modulations['QAM1024']=config['EVM_QAM1024']
     N_UE = config['N_UE']
     SEED = config['M_SEED']
-#     torch.manual_seed(SEED)
-    np.random.seed(SEED)
+    if SEED:
+#         torch.manual_seed(SEED)
+        np.random.seed(SEED)
     
     # an amount of modulation types
     mod_number = len(modulations.keys())
@@ -80,7 +81,7 @@ def MOD_allocate(config,info=False):
     MOD_allocation = [mod_types[i] for i in mod_idx]
     
     if info:
-        print('MODs have been allocated - OK:')
+        print('* MODs have been allocated - OK:')
         print('Current MODs allocation:',MOD_allocation)
         print('Current EVMs allocation:',EVM_allocation)
         print()
@@ -96,8 +97,9 @@ def RB_allocate(config,info=False):
     N_UE = config['N_UE']
     N_RB = config['N_RB']
     SEED = config['RB_SEED']
-#     torch.manual_seed(SEED)
-    np.random.seed(SEED)
+    if SEED:
+#         torch.manual_seed(SEED)
+        np.random.seed(SEED)
     
     rb_alloc = np.round(np.random.random(N_UE)*N_RB)
     rb_alloc = rb_alloc + N_RB//3
@@ -111,9 +113,8 @@ def RB_allocate(config,info=False):
     rb_alloc=rb_alloc.astype(int)
     
     if info:
-        print('RBs have been allocated - OK:')
-        print('Current RB allocation:',rb_alloc)
-        print('Sum UE RB is:',np.sum(rb_alloc))
+        print('* RBs have been allocated - OK:')
+        print('Current RB allocation:',rb_alloc,'Sum =',np.sum(rb_alloc))
         print()
         
     assert (np.sum(rb_alloc <= 0) == 0), 'Resourse block must be integer non-zero positive value'
@@ -204,7 +205,6 @@ def MOD_signal(D,device,MOD_allocation,PTX_allocation,RB_allocation,constellatio
     PTX_allocation = torch.tensor(PTX_allocation)
     RB_allocation = torch.tensor(RB_allocation)
     UE_SC_idx = GET_UE_SC_idx(RB_allocation)
-    k=(N_used/N_fft)**0.5
     D = D.to(torch.complex64)
     # array for the f-domain signal
     S_f = torch.zeros([N_fft,M],dtype=torch.complex64,device=device)
@@ -213,6 +213,7 @@ def MOD_signal(D,device,MOD_allocation,PTX_allocation,RB_allocation,constellatio
         start_idx = UE_SC_idx[user]
         end_idx = UE_SC_idx[user+1]
         N_SC=N_SC_RB*RB_allocation[user] 
+        
 #         k=(N_SC/N_fft)**0.5
 #         k=(N_used/N_fft)**0.5
         k=1
@@ -277,8 +278,8 @@ def GEN_points(device,MOD_allocation,RB_allocation,config,info=False):
     N_zero = config['N_zero']
     N_SC_RB = config['N_SC_RB']
     SEED = config['RNG_SEED']
-    torch.manual_seed(SEED)
-#     np.random.seed(SEED)
+    if SEED:
+        torch.cuda.manual_seed(SEED)
 
     RB_allocation = torch.tensor(RB_allocation)
     UE_SC_idx = GET_UE_SC_idx(RB_allocation)
