@@ -101,7 +101,7 @@ def RB_allocate(config,info=False):
 #         torch.manual_seed(SEED)
         np.random.seed(SEED)
     
-    rb_alloc = np.round(np.random.random(N_UE)*N_RB)
+    rb_alloc = np.round(np.random.random(N_UE)*N_RB) + 4 
     rb_alloc = rb_alloc + N_RB//3
     rb_alloc = np.round(N_RB * rb_alloc/np.sum(rb_alloc))
     rb_sum = np.sum(rb_alloc)
@@ -153,11 +153,11 @@ def find_peaks(S_t, peak_th, N_fft):
     power = torch.abs(S_t)**2
     # find mean power for each OFDM symbol
     power_mean = torch.sum(power,axis=0) / N_fft
-    
     # pass peaks higher than threshold
-    # only peaks higher than threshold
     # only th > 0 has sense (to substrant peaks higher mean value)
     S_t_peaks = S_t*(power > power_mean.reshape(1,-1)*10**(peak_th/10))
+    # power_max,_ = torch.max(power,axis=0)
+    # S_t_peaks = S_t*(power > power_max.reshape(1,-1)*peak_th)
     return S_t_peaks
 
 
@@ -214,9 +214,10 @@ def MOD_signal(D,device,MOD_allocation,PTX_allocation,RB_allocation,constellatio
         end_idx = UE_SC_idx[user+1]
         N_SC=N_SC_RB*RB_allocation[user] 
         
-#         k=(N_SC/N_fft)**0.5
-#         k=(N_used/N_fft)**0.5
         k=1
+#         k=(N_SC/N_fft)**0.5
+        k=(N_used/N_fft)**0.5
+
         
         if MOD_allocation[user] == 'QPSK':
             data_qpsk = D[start_idx:end_idx,:] # torch.randint(0,4,(M,N_SC),device=device)

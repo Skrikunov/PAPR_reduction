@@ -42,7 +42,13 @@ def PAPR_reduce(S_t,peak_th,group_th,group_sc,S_sc,config,info=False):
         Peaks = sys.find_peaks1(S_t, n_peaks=3)
     else:
         None
-    
+        
+#     delta = Peaks.abs() - Peaks.abs().mean(0)
+#     delta[delta <= 0] = 0
+#     k = 1 - delta / Peaks.abs()
+#     k[k.isnan()] = 0
+#     Peaks = k * Peaks
+
     # choose subcarriers in the Fourier matrix
     S_sc = S_sc[:,group_sc]
     
@@ -65,7 +71,6 @@ def PAPR_reduce(S_t,peak_th,group_th,group_sc,S_sc,config,info=False):
     coef = (u > th)*10**((-u+th)/20) + (u <= th)*1
     coef[torch.isnan(coef)] = 0
     S_t_canc_final = coef.reshape(1,-1) * S_t_canc
-    
     if info:
         print("Pdata/Ptones before supression",np.round(-10*np.log10(np.array((power_data/power_tones).cpu())),2))
         power_tones1 = np.sum(np.abs(np.array(S_t_canc_final.cpu()))**2,axis=0)/group_sc.shape[0]

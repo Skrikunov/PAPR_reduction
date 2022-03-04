@@ -7,31 +7,41 @@ import torch
 
 def plot_res_allocation(PTX_allocation,RB_allocation,MOD_allocation,color_list,config):
     N_UE = config['N_UE']
+    N_RB = config['N_RB']
     P_TX = config['P_TX']
     N_used = config['N_used']
     fontsize=12
-    plt.figure(figsize=(13,N_UE*0.6))
-    plt.title(f'Resourses allocation N_UE = {N_UE}, P_TX = {P_TX}, N_SC = {N_used}',fontsize=16)
-    plt.ylim(0,N_used)
-    plt.xlim(0,1.75)
+    plt.figure(figsize=(13,2))
+    plt.title(f'Resourses allocation N_UE = {N_UE}, P_TX = {P_TX}, N_SC = {N_used}, N_RB = {N_RB}',fontsize=16)
+    panel_len = 50
+    plt.xlim(-panel_len,N_used)
+    plt.ylim(0,1)
     plt.xticks(fontsize=14)
-    plt.yticks(fontsize=14)
+    plt.yticks([])
+    
     # plt.xlabel('Real',fontsize=18)
-    plt.ylabel('Subcarrier index',fontsize=20)
+    plt.xlabel('Subcarrier index',fontsize=20)
     
     SC = sys.GET_UE_SC_idx(torch.tensor(RB_allocation))
-    plt.hlines(SC,0,0.3,'k',linewidths=1)
-    plt.hlines(SC,0.3,1.75,'k','--',linewidths=1)
-    plt.vlines(np.array([1,1.3,1.6,1.9])-0.65,0,600,'k','--',linewidths=1)
+    plt.vlines(SC,0,1.0,'k',linewidths=1)
+#     plt.vlines(SC,0.3,1.75,'k','--',linewidths=1)
+    plt.hlines(np.array([0.2,0.4,0.6,0.8]),-panel_len,600,'k','--',linewidths=1)
+    locs0 = np.array([0.2,0.4,0.6,0.8])
+    locs1 = locs0 - 0.15
 
     for i in range(len(RB_allocation)):
-        plt.fill_between(np.array([0,0.35]),SC[i],SC[i+1]+1,color=color_list[i])
-        dy = 4
-        dx = -0.6
-        plt.text(1.00+dx,(SC[i]+SC[i+1])/2-dy,f'P_UE = {PTX_allocation[i]}',fontsize=fontsize)
-        plt.text(1.3+dx,(SC[i]+SC[i+1])/2-dy,f'N_RB = {RB_allocation[i]}',fontsize=fontsize)
-        plt.text(1.6+dx,(SC[i]+SC[i+1])/2-dy,f'N_SC = {12*RB_allocation[i]}',fontsize=fontsize)
-        plt.text(1.9+dx,(SC[i]+SC[i+1])/2-dy,f'MOD = {MOD_allocation[i]}',fontsize=fontsize)
+        plt.fill_between(np.array([SC[i],SC[i+1]+1]),np.array([0.8]),np.array([1.0]),color=color_list[i])
+        dy = 7
+        dx = 9
+        plt.text(-panel_len + 10,locs1[-1],f'MOD',fontsize=fontsize)
+        plt.text(-panel_len + 10,locs1[-2],f'P_TX',fontsize=fontsize)
+        plt.text(-panel_len + 10,locs1[-3],f'N_RB',fontsize=fontsize)
+        plt.text(-panel_len + 10,locs1[-4],f'N_SC',fontsize=fontsize)
+        
+        plt.text((SC[i]+SC[i+1])/2 - 3.4*len(MOD_allocation[i]),locs1[-1],f'{MOD_allocation[i]}',fontsize=fontsize)
+        plt.text((SC[i]+SC[i+1])/2 - 11,locs1[-2],f'{PTX_allocation[i]:0.1f}',fontsize=fontsize)
+        plt.text((SC[i]+SC[i+1])/2 - 11,locs1[-3],f'{RB_allocation[i]}',fontsize=fontsize)
+        plt.text((SC[i]+SC[i+1])/2 - 11,locs1[-4],f'{12*RB_allocation[i]}',fontsize=fontsize)
     return None
 
 
@@ -45,12 +55,12 @@ def filter_ccdf(ccdf):
 
 def plot_CCDF(CCDF,LABELS,PAPR,figsize):
     plt.figure(figsize=figsize)
-    plt.title("CCDF",fontsize=16)
+    plt.title("CCDF (Complementary Cumulative Distribution Function)",fontsize=16)
     plt.xlabel("PAPR",fontsize=16)
     plt.ylabel("Probability",fontsize=16)
     
     plt.xlim(PAPR.min(),PAPR.max())
-    plt.ylim(1e-8,1)
+    plt.ylim(1e-6,1)
     
     points = (PAPR.max()-PAPR.min()).to(int)
     plt.xticks(np.linspace(0,len(PAPR),points+1),np.round(np.arange(PAPR.min(),PAPR.max()+1,1),2),fontsize=12)
@@ -97,10 +107,10 @@ def plot_spectrum(SIGNALS,LABELS,TITLE,ANL_allocation,SC,config,figsize):
     N_UE=config['N_UE']
     # create window
     win = signal.get_window('hanning', N_fft)
-    win = np.ones(N_fft)
+#     win = np.ones(N_fft)
     # create figure
     plt.figure(figsize=figsize)
-    plt.ylim(-50,20)
+    plt.ylim(-90,20)
 
     PSD = []
     for s_t,lab in zip(SIGNALS,LABELS):
@@ -112,29 +122,30 @@ def plot_spectrum(SIGNALS,LABELS,TITLE,ANL_allocation,SC,config,figsize):
     for i in range(N_UE):
         allowed_level = 10*np.log10(ANL_allocation[i])
         top_level = 10*np.log10(np.array(PSD[0])[0,SC[i]:SC[i+1]]).mean()
-        plt.hlines(top_level + allowed_level,(Fs/1024)*SC[i]-Fs/2,(Fs/1024)*SC[i+1]-Fs/2,colors='r',linewidth=2)
-        plt.hlines(top_level + allowed_level,-Fs/2,Fs/2,colors='k',linestyles='--',linewidth=1)
+        if i == 0: plt.hlines(top_level + allowed_level,(Fs/1024)*SC[i]-Fs/2,(Fs/1024)*SC[i+1]-Fs/2,colors='r',linewidth=2,label='Allowed noise level')
+        else: plt.hlines(top_level + allowed_level,(Fs/1024)*SC[i]-Fs/2,(Fs/1024)*SC[i+1]-Fs/2,colors='r',linewidth=2)
+#         plt.hlines(top_level + allowed_level,-Fs/2,Fs/2,colors='k',linestyles='--',linewidth=1)
         
     plt.title(TITLE,fontsize=fontsize)
     plt.xlim(-Fs/2,Fs/2)
     plt.xlabel('Frequency,MHz',fontsize=fontsize)
     plt.ylabel('Power,dB',fontsize=fontsize)
     plt.grid()
-    plt.legend(loc='upper right',fontsize=fontsize) 
+    plt.legend(loc='upper right',fontsize=12) 
     plt.show()
     
-    plt.figure(figsize=figsize)
-    plt.plot(-10*np.log10(PSD[0].T) + 10*np.log10(PSD[1].T))
-    for i in range(N_UE):
-        plt.hlines(10*np.log10(ANL_allocation[i]),SC[i],SC[i+1],colors='r',linewidth=3)
-        plt.hlines(10*np.log10(ANL_allocation[i]),0,1024,colors='k',linestyles='--',linewidth=1)
-    plt.xlim(0,1024)
-    plt.title(TITLE,fontsize=fontsize)
-    plt.xlabel('Frequency,MHz',fontsize=fontsize)
-    plt.ylabel('Power difference,dB',fontsize=fontsize)
-    plt.grid()
-#     plt.legend(loc='upper right',fontsize=fontsize) 
-    plt.show()
+#     plt.figure(figsize=figsize)
+#     plt.plot(-10*np.log10(PSD[0].T) + 10*np.log10(PSD[1].T))
+#     for i in range(N_UE):
+#         plt.hlines(10*np.log10(ANL_allocation[i]),SC[i],SC[i+1],colors='r',linewidth=3)
+#         plt.hlines(10*np.log10(ANL_allocation[i]),0,1024,colors='k',linestyles='--',linewidth=1)
+#     plt.xlim(0,1024)
+#     plt.title(TITLE,fontsize=fontsize)
+#     plt.xlabel('Frequency,MHz',fontsize=fontsize)
+#     plt.ylabel('Power difference,dB',fontsize=fontsize)
+#     plt.grid()
+# #     plt.legend(loc='upper right',fontsize=fontsize) 
+#     plt.show()
     
     return PSD
 
